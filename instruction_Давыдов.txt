@@ -1,0 +1,14 @@
+sudo apt update
+sudo apt install pg-bouncer
+
+
+sudo nano /etc/postgresql/<версия>/main/postgresql.conf
+
+найти строчку listen_addresses и изменить её на:
+listen_addresses = '*'
+
+sudo nano /etc/postgresql/<версия>/main/pg_hba.conf
+найти настройка IPv4 и добавить(изменить запись) на:
+host    all    all    127.0.0.1/32    md5
+
+sudo systemctl restart postgresql
