@@ -1,0 +1,107 @@
+
+НА СЕРВЕРЕ
+
+sudo apt install postgresql
+sudo apt install apache2
+
+перекинуть все deb пакеты старой версии bareos, установить пакеты для bareos-director, bareos-webui и их зависимости.
+
+если перед установкой пакетов был скачан postgresql, то можно ответить yes, на вопрос о настройки базы данных для bareos.
+отвечать No configuration, когда будет спрашивать под что настроить bareos(там варианты ответов типо inernet-site и так далее.).
+
+
+создание пользователя(admin) через консоль bconsole на сервере
+bconsole
+configure add console name=admin password=secret profile=webui-admin tlsenable=no
+exit
+
+
+НА КЛИЕНТЕ
+
+ОС Windows
+
+качаем клиент-версию bareos, запускаем установщик
+когда будет спрашивать что нужно качать нажимаем next, доходим до этапа ввода данных клиента, меняем все, кроме имени администратора (bareos-dir),
+
+в конце получаем данные клиента(их лучше где то сохранить, этого клиента можно будет использовать с любого сервера в сети), будет что то типо:
+
+Client {
+  Name = имя клиента
+  Description = "описание(можно не писать)"
+  Address = ip-адресклиента
+  Password = "password"
+}
+
+НА СЕРВЕРЕ
+
+sudo nano /etc/bareos/bareos-dir.d/client/{имя клиента}.conf
+вставляем содержимое по примеру выше.
+
+sudo systemctl restart bareos-dir bareos-fd bareos-sd
+
+sudo systemctl status bareos-dir bareos-fd bareos-sd
+
+дальше загружаемся в bareos-webui по адресу "http://{ip-адрес-сервера}/bareos-webui/" и проверяем добавился ли клиент в панели(также можно применить в консоли команду estimate и выбрать клиента.)
+
+
+
+теперь переходим к настройке fileset, job, pool
+
+sudo nano /etc/bareos/bareos-dir.d/fileset/{название}.conf
+
+Fileset {
+  Name = "название"
+  Include {
+      Options {
+        Signature = MD5
+    }
+    File = "путь к файлу/" ### в конце пути обязательно поставить /
+  }
+}
+
+sudo nano /etc/bareos/bareos-dir.d/job/{название}.conf
+
+Job {
+  Name = "название"
+  Level = "Full"
+  Client = "имя-клиента"
+  FileSet = "название"
+  Messages = "Standard"
+  Pool = "название"
+  Schedule = "WeeklyCycleAfterBackup"
+  Storage = "File"
+  Type = "Backup"
+
+  Write Bootstrap = "/var/lib/bareos/storage/%c-%l-%j-%i.bsr"
+}
+
+sudo nano /etc/bareos/bareos-dir.d/pool/{название}.conf
+
+Pool {
+  Name = название
+  Pool Type = Backup
+  Recycle = yes                       # Bareos can automatically recycle Volumes
+  AutoPrune = yes                     # Prune expired volumes
+  Volume Retention = 365 days         # How long should the Full Backups be kept?
+  Maximum Volume Bytes = 50G          # Limit Volume size to something reasonable
+  Maximum Volumes = 100               # Limit number of Volumes in Pool
+  Maximum Volume Jobs = 1             # Limit number of Jobs in Pool
+  Label Format = "${Client}-${Level}-${JobName}-${JobId}"
+}
+
+sudo systemctl restart bareos-dir bareos-fd bareos-sd
+
+sudo systemctl status bareos-dir bareos-fd bareos-sd # если появились ошибки предлагаю выполнить sudo bareos-dir -t (это проверит всю конфигурацию файлов)
+
+теперь можем загрузиться на веб-интерфейс бареоса и проверить, запустится ли задание, если что посмотреть там ошибки.
+
+
+
+КОММЕНТАРИИ
+
+в любой непонятной ситуации, ксли появляются какие то ошибки можно проверить всю конфигурацию командой
+sudo bareos-dir -t, также очень полезно периодически смотреть sudo systemctl status bareos-dir bareos-fd bareos-sd
+
+от глебуса слышал, что если настраивать клиента на ubuntu, то нужно будет отключить ему TLS, но где это сделать, надо разобраться. -> из-за этого могут быть ошибки
+
+новые версии бареоса могут быть слегка багованными, так что могут ломаться демоны
