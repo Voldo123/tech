@@ -1,0 +1,157 @@
+# ТЕХНИЧЕСКОЕ ЗАДАНИЕ
+
+## На разработку интегрированной системы генерации PDF-документов, DICOM-хранилища на Orthanc и обработки данных через Django и Node.js
+
+---
+
+## 1. Общие сведения
+
+### 1.1. Наименование системы
+
+Интегрированная система для:
+
+* Автогенерации PDF-документов из данных PostgreSQL (Django).
+* Хранения и обработки DICOM-изображений с помощью Orthanc.
+* Сервисов REST API на Node.js для интеграции.
+
+### 1.2. Основание для разработки
+
+* Заказ от медицинского органа.
+* ГОСТ 34.602-89, 19.201-78.
+
+---
+
+## 2. Цели и задачи
+
+### 2.1. Цели
+
+* Обеспечить автоматическую генерацию PDF для отчетов, сводок, анализов.
+* Развернуть DICOM-хранилище.
+* Связать DICOM API с Node.js.
+
+### 2.2. Функционал
+
+* Выборка из PostgreSQL (через Django ORM).
+* Форматирование и построение PDF через ReportLab.
+* Интерактивный поиск DICOM через Node.js (axios + dicom-parser).
+
+---
+
+## 3. Структура проекта
+
+```
+project-root/
+├── backend/
+│   ├── manage.py
+│   ├── app/
+│   │   ├── models.py     # BaseRate
+│   │   ├── commands/
+│   │   │   └── export_pdf.py  # Django command
+├── node/
+│   ├── index.js
+│   ├── services/dicom.js
+├── orthanc/
+│   ├── orthanc.json
+│   └── Dockerfile
+└── docs/
+    └── template.pdf
+```
+
+---
+
+## 4. Формат PDF
+
+* Шрифт: PT Astra Serif (Bold для заголовков, Regular для остального).
+* Выравнивание: центр (заголовки), ширина (текст).
+* Таблицы: с объединением ячеек, отступами.
+
+### Пример PDF вызова
+
+```bash
+python manage.py export_pdf --format summary --customer_id=123
+```
+
+---
+
+## 5. DICOM + Node.js
+
+### 5.1. Orthanc запуск
+
+```bash
+podman run -d -p 8042:8042 -p 4242:4242 \
+    -v $(pwd)/orthanc.json:/etc/orthanc/orthanc.json \
+    jodogne/orthanc-plugins
+```
+
+### 5.2. Node.js REST API
+
+```javascript
+app.get('/studies', async (req, res) => {
+  const response = await axios.get(`${ORTHANC_API}/studies`);
+  res.json(response.data);
+});
+```
+
+### 5.3. Тестирование
+
+* curl [http://localhost:3000/studies](http://localhost:3000/studies)
+* Postman: GET /study/\:id
+
+---
+
+## 6. База данных
+
+### Модель BaseRate (Django)
+
+```python
+class BaseRate(models.Model):
+    TF_OKATO = models.CharField(max_length=20)
+    IDUMP = models.CharField(max_length=20)
+    BZTSZ = models.CharField(max_length=20)
+    DATEBEG = models.DateField()
+    DATEEND = models.DateField()
+```
+
+### Выборка по фильтра
+
+```python
+BaseRate.objects.filter(TF_OKATO__contains='6')
+```
+
+---
+
+## 7. Тесты и документы
+
+### 7.1. Тестовые сценарии
+
+* PDF с 100 записями < 5 сек
+* REST API отклик < 100ms
+* DICOM C-STORE, C-FIND: OsiriX/др.
+
+### 7.2. Документация
+
+* README.md
+* PDF шаблон
+* Описание REST API
+
+---
+
+## 8. Требования ко коду
+
+* PEP8 + ESLint.
+* Комментарии ко всем функциям.
+* Логгирование ошибок.
+
+---
+
+## 9. Приложения
+
+* PDF-шаблон.
+* DICOM-тесты.
+* SQL-дамп базы.
+* Команда Django: `export_pdf`.
+
+---
+
+**Разработчик:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+**Дата:** \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
